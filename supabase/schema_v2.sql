@@ -168,20 +168,45 @@ end $$;
 
 -- ------------------------------------------------------------
 -- 3) Xavfsizlik: faqat ruxsat ro'yxatidagilar
+--    (har bir jadval uchun ochiq yozilgan - Supabase tekshiruvi
+--     sikl ichini o'qiy olmaydi va bekorga ogohlantiradi)
 -- ------------------------------------------------------------
-do $$
-declare t text;
-begin
-  foreach t in array array['tables','order_lines','menu_items','categories','settings','receipts']
-  loop
-    execute format('alter table public.%I enable row level security', t);
-    execute format('drop policy if exists %I on public.%I', t || '_allowed', t);
-    execute format(
-      'create policy %I on public.%I for all to authenticated
-         using (public.is_allowed()) with check (public.is_allowed())',
-      t || '_allowed', t);
-  end loop;
-end $$;
+alter table public.tables      enable row level security;
+alter table public.order_lines enable row level security;
+alter table public.menu_items  enable row level security;
+alter table public.categories  enable row level security;
+alter table public.settings    enable row level security;
+alter table public.receipts    enable row level security;
+
+drop policy if exists "tables_allowed" on public.tables;
+create policy "tables_allowed" on public.tables
+  for all to authenticated
+  using (public.is_allowed()) with check (public.is_allowed());
+
+drop policy if exists "order_lines_allowed" on public.order_lines;
+create policy "order_lines_allowed" on public.order_lines
+  for all to authenticated
+  using (public.is_allowed()) with check (public.is_allowed());
+
+drop policy if exists "menu_items_allowed" on public.menu_items;
+create policy "menu_items_allowed" on public.menu_items
+  for all to authenticated
+  using (public.is_allowed()) with check (public.is_allowed());
+
+drop policy if exists "categories_allowed" on public.categories;
+create policy "categories_allowed" on public.categories
+  for all to authenticated
+  using (public.is_allowed()) with check (public.is_allowed());
+
+drop policy if exists "settings_allowed" on public.settings;
+create policy "settings_allowed" on public.settings
+  for all to authenticated
+  using (public.is_allowed()) with check (public.is_allowed());
+
+drop policy if exists "receipts_allowed" on public.receipts;
+create policy "receipts_allowed" on public.receipts
+  for all to authenticated
+  using (public.is_allowed()) with check (public.is_allowed());
 
 -- Eski keng qoidalarni olib tashlaymiz
 drop policy if exists "kassa_state_auth_all" on public.kassa_state;
@@ -190,17 +215,28 @@ drop policy if exists "receipts_auth_all"    on public.receipts;
 -- ------------------------------------------------------------
 -- 4) Real vaqtda uzatish
 -- ------------------------------------------------------------
+-- O'chirish hodisasida ham to'liq qator kelishi uchun
+alter table public.tables      replica identity full;
+alter table public.order_lines replica identity full;
+alter table public.menu_items  replica identity full;
+alter table public.categories  replica identity full;
+alter table public.settings    replica identity full;
+alter table public.receipts    replica identity full;
+
+-- Jadval nashrga allaqachon qo'shilgan bo'lsa xato bermasin
 do $$
 declare t text;
 begin
   foreach t in array array['tables','order_lines','menu_items','categories','settings','receipts']
   loop
-    -- O'chirish hodisasida ham to'liq qator kelishi uchun
-    execute format('alter table public.%I replica identity full', t);
-    begin
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = t
+    ) then
       execute format('alter publication supabase_realtime add table public.%I', t);
-    exception when duplicate_object then null;
-    end;
+    end if;
   end loop;
 end $$;
 
