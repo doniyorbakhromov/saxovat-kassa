@@ -53,9 +53,7 @@ class _TablesPageState extends State<TablesPage> {
           slivers: [
             SliverPadding(
               padding: EdgeInsets.fromLTRB(pad, 10, pad, 0),
-              sliver: SliverToBoxAdapter(
-                child: _StatsRow(wide: wide),
-              ),
+              sliver: SliverToBoxAdapter(child: _StatsRow(wide: wide)),
             ),
             SliverPadding(
               padding: EdgeInsets.fromLTRB(pad, 20, pad, 12),
@@ -74,8 +72,8 @@ class _TablesPageState extends State<TablesPage> {
                                 count: z == "Hammasi"
                                     ? store.tables.length
                                     : store.tables
-                                        .where((t) => t.zone == z)
-                                        .length,
+                                          .where((t) => t.zone == z)
+                                          .length,
                                 onTap: () => setState(() => _zone = z),
                               ),
                               const SizedBox(width: 8),
@@ -99,7 +97,8 @@ class _TablesPageState extends State<TablesPage> {
                 child: EmptyState(
                   icon: Icons.table_bar_rounded,
                   title: "Bu yerda stol yo'q",
-                  message: "O'z stollaringizni qo'shing.\n"
+                  message:
+                      "O'z stollaringizni qo'shing.\n"
                       "Bir vaqtda bir nechtasini ham qo'shsa bo'ladi.",
                   action: ElevatedButton.icon(
                     onPressed: () => showTableDialog(
@@ -115,8 +114,7 @@ class _TablesPageState extends State<TablesPage> {
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(pad, 4, pad, 28),
                 sliver: SliverGrid(
-                  gridDelegate:
-                      const SliverGridDelegateWithMaxCrossAxisExtent(
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: 252,
                     mainAxisSpacing: 14,
                     crossAxisSpacing: 14,
@@ -174,16 +172,14 @@ class _StatsRow extends StatelessWidget {
         final perRow = c.maxWidth >= 1180
             ? 4
             : c.maxWidth >= 520
-                ? 2
-                : 1;
+            ? 2
+            : 1;
         const gap = 12.0;
         final w = (c.maxWidth - gap * (perRow - 1)) / perRow;
         return Wrap(
           spacing: gap,
           runSpacing: gap,
-          children: [
-            for (final t in tiles) SizedBox(width: w, child: t),
-          ],
+          children: [for (final t in tiles) SizedBox(width: w, child: t)],
         );
       },
     );
@@ -201,7 +197,10 @@ class _AddTableButton extends StatelessWidget {
     return ElevatedButton.icon(
       onPressed: () => showTableDialog(context, zone: defaultZone),
       style: ElevatedButton.styleFrom(
-        padding: EdgeInsets.symmetric(horizontal: compact ? 14 : 20, vertical: 14),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 14 : 20,
+          vertical: 14,
+        ),
       ),
       icon: const Icon(Icons.add_rounded, size: 19),
       label: Text(compact ? "Stol" : "Stol qo'shish"),
@@ -226,19 +225,13 @@ class _TableCard extends StatelessWidget {
           ? LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Ink3.gold.withValues(alpha: 0.14),
-                Ink3.card,
-                Ink3.card,
-              ],
+              colors: [Ink3.gold.withValues(alpha: 0.14), Ink3.card, Ink3.card],
             )
           : null,
       borderColor: busy ? Ink3.gold.withValues(alpha: 0.45) : Ink3.stroke,
       shadows: busy ? Ink3.glow(Ink3.gold, 0.16) : null,
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => OrderScreen(tableId: table.id),
-        ),
+        MaterialPageRoute<void>(builder: (_) => OrderScreen(tableId: table.id)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -321,8 +314,11 @@ class _TableCard extends StatelessWidget {
             const SizedBox(height: 10),
             Row(
               children: const [
-                Icon(Icons.add_circle_outline_rounded,
-                    size: 15, color: Ink3.textFaint),
+                Icon(
+                  Icons.add_circle_outline_rounded,
+                  size: 15,
+                  color: Ink3.textFaint,
+                ),
                 SizedBox(width: 6),
                 Text(
                   "Buyurtma ochish",
@@ -355,7 +351,11 @@ class _TableMenu extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         side: const BorderSide(color: Ink3.stroke),
       ),
-      icon: const Icon(Icons.more_vert_rounded, size: 18, color: Ink3.textFaint),
+      icon: const Icon(
+        Icons.more_vert_rounded,
+        size: 18,
+        color: Ink3.textFaint,
+      ),
       padding: EdgeInsets.zero,
       itemBuilder: (_) => [
         const PopupMenuItem(
@@ -370,8 +370,11 @@ class _TableMenu extends StatelessWidget {
         if (!table.isBusy)
           const PopupMenuItem(
             value: "delete",
-            child: _MenuRow(Icons.delete_outline_rounded, "O'chirish",
-                color: Ink3.red),
+            child: _MenuRow(
+              Icons.delete_outline_rounded,
+              "O'chirish",
+              color: Ink3.red,
+            ),
           ),
       ],
       onSelected: (v) async {
@@ -497,95 +500,97 @@ Future<void> showTableDialog(
           title: Text(existing == null ? "Yangi stol" : "Stolni tahrirlash"),
           content: SizedBox(
             width: 360,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameC,
-                  autofocus: true,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: InputDecoration(
-                    labelText: existing == null && count > 1
-                        ? "Nom boshlanishi"
-                        : "Stol nomi",
-                    hintText: "Masalan: Stol",
-                    prefixIcon: const Icon(Icons.table_bar_rounded),
-                    helperText: existing == null && count > 1
-                        ? "${nameC.text.trim().isEmpty ? "Stol" : nameC.text.trim()} 1, "
-                            "${nameC.text.trim().isEmpty ? "Stol" : nameC.text.trim()} 2 ... "
-                            "shaklida $count ta stol qo'shiladi"
-                        : null,
-                    helperMaxLines: 2,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameC,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: InputDecoration(
+                      labelText: existing == null && count > 1
+                          ? "Nom boshlanishi"
+                          : "Stol nomi",
+                      hintText: "Masalan: Stol",
+                      prefixIcon: const Icon(Icons.table_bar_rounded),
+                      helperText: existing == null && count > 1
+                          ? "${nameC.text.trim().isEmpty ? "Stol" : nameC.text.trim()} 1, "
+                                "${nameC.text.trim().isEmpty ? "Stol" : nameC.text.trim()} 2 ... "
+                                "shaklida $count ta stol qo'shiladi"
+                          : null,
+                      helperMaxLines: 2,
+                    ),
+                    onChanged: (_) => setLocal(() {}),
                   ),
-                  onChanged: (_) => setLocal(() {}),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: zoneC,
-                  decoration: const InputDecoration(
-                    labelText: "Zona",
-                    hintText: "Zal / Terassa / VIP",
-                    prefixIcon: Icon(Icons.place_outlined),
-                  ),
-                ),
-                if (store.zones.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Wrap(
-                      spacing: 7,
-                      runSpacing: 7,
-                      children: [
-                        for (final z in store.zones)
-                          ChipButton(
-                            label: z,
-                            selected: zoneC.text == z,
-                            onTap: () => setLocal(() => zoneC.text = z),
-                          ),
-                      ],
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: zoneC,
+                    decoration: const InputDecoration(
+                      labelText: "Zona",
+                      hintText: "Zal / Terassa / VIP",
+                      prefixIcon: Icon(Icons.place_outlined),
                     ),
                   ),
-                ],
-                const SizedBox(height: 12),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: seatsC,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(2),
+                  if (store.zones.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Wrap(
+                        spacing: 7,
+                        runSpacing: 7,
+                        children: [
+                          for (final z in store.zones)
+                            ChipButton(
+                              label: z,
+                              selected: zoneC.text == z,
+                              onTap: () => setLocal(() => zoneC.text = z),
+                            ),
                         ],
-                        decoration: const InputDecoration(
-                          labelText: "Necha kishilik",
-                          prefixIcon: Icon(Icons.people_outline),
-                        ),
                       ),
                     ),
-                    if (existing == null) ...[
-                      const SizedBox(width: 10),
-                      SizedBox(
-                        width: 118,
+                  ],
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
                         child: TextField(
-                          controller: countC,
+                          controller: seatsC,
                           keyboardType: TextInputType.number,
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(3),
+                            LengthLimitingTextInputFormatter(2),
                           ],
-                          onChanged: (_) => setLocal(() {}),
                           decoration: const InputDecoration(
-                            labelText: "Soni",
-                            prefixIcon: Icon(Icons.tag_rounded),
+                            labelText: "Necha kishilik",
+                            prefixIcon: Icon(Icons.people_outline),
                           ),
                         ),
                       ),
+                      if (existing == null) ...[
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          width: 118,
+                          child: TextField(
+                            controller: countC,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(3),
+                            ],
+                            onChanged: (_) => setLocal(() {}),
+                            decoration: const InputDecoration(
+                              labelText: "Soni",
+                              prefixIcon: Icon(Icons.tag_rounded),
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           ),
           actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 18),

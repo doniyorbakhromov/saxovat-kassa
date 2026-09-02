@@ -46,8 +46,7 @@ class SettingsPage extends StatelessWidget {
                             value: store.settings.servicePercent == 0
                                 ? "Yo'q"
                                 : "${store.settings.servicePercent}%",
-                            subtitle:
-                                "Har bir chekka avtomatik qo'shiladi",
+                            subtitle: "Har bir chekka avtomatik qo'shiladi",
                             onTap: () => _editService(context),
                           ),
                         ],
@@ -113,7 +112,7 @@ class SettingsPage extends StatelessWidget {
                             subtitle: store.receipts.isEmpty
                                 ? null
                                 : "Oxirgisi: "
-                                    "${dateTimeFull(store.receipts.first.closedAt)}",
+                                      "${dateTimeFull(store.receipts.first.closedAt)}",
                           ),
                         ],
                       ),
@@ -265,7 +264,11 @@ class SettingsPage extends StatelessWidget {
               const Text(
                 "Kassa shuncha vaqt tegilmasa, o'zi parol ekraniga qaytadi. "
                 "Ochiq buyurtmalar saqlanib qoladi.",
-                style: TextStyle(color: Ink3.textDim, fontSize: 13, height: 1.4),
+                style: TextStyle(
+                  color: Ink3.textDim,
+                  fontSize: 13,
+                  height: 1.4,
+                ),
               ),
               const SizedBox(height: 16),
               Wrap(
@@ -306,50 +309,52 @@ class SettingsPage extends StatelessWidget {
           title: const Text("Parolni o'zgartirish"),
           content: SizedBox(
             width: 340,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: f[0],
-                  obscureText: true,
-                  keyboardType: TextInputType.number,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: "Joriy parol",
-                    prefixIcon: Icon(Icons.lock_outline_rounded),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: f[1],
-                  obscureText: true,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: "Yangi parol (4-8 raqam)",
-                    prefixIcon: Icon(Icons.password_rounded),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: f[2],
-                  obscureText: true,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: "Yangi parolni takrorlang",
-                    prefixIcon: Icon(Icons.password_rounded),
-                  ),
-                ),
-                if (error != null) ...[
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      error!,
-                      style: const TextStyle(color: Ink3.red, fontSize: 12.5),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: f[0],
+                    obscureText: true,
+                    keyboardType: TextInputType.number,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: "Joriy parol",
+                      prefixIcon: Icon(Icons.lock_outline_rounded),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: f[1],
+                    obscureText: true,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: "Yangi parol (4-8 raqam)",
+                      prefixIcon: Icon(Icons.password_rounded),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: f[2],
+                    obscureText: true,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: "Yangi parolni takrorlang",
+                      prefixIcon: Icon(Icons.password_rounded),
+                    ),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        error!,
+                        style: const TextStyle(color: Ink3.red, fontSize: 12.5),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
           actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 18),

@@ -7,6 +7,9 @@ import "../theme.dart";
 import "../utils.dart";
 import "../widgets/common.dart";
 
+/// Dialogdan "o'chirish tanlandi" degan javobni ajratish uchun.
+const String _deleteMarker = "__delete__";
+
 class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
 
@@ -61,8 +64,8 @@ class _MenuPageState extends State<MenuPage> {
                         context,
                         category: _cat == "Hammasi"
                             ? (store.categories.isEmpty
-                                ? ""
-                                : store.categories.first)
+                                  ? ""
+                                  : store.categories.first)
                             : _cat,
                       ),
                       style: ElevatedButton.styleFrom(
@@ -79,10 +82,14 @@ class _MenuPageState extends State<MenuPage> {
               ),
             ),
             SliverPadding(
+              padding: EdgeInsets.fromLTRB(pad, 0, pad, 8),
+              sliver: const SliverToBoxAdapter(child: _MenuHint()),
+            ),
+            SliverPadding(
               padding: EdgeInsets.fromLTRB(pad, 4, pad, 12),
               sliver: SliverToBoxAdapter(
                 child: SizedBox(
-                  height: 42,
+                  height: 44,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     children: [
@@ -112,15 +119,16 @@ class _MenuPageState extends State<MenuPage> {
                 child: EmptyState(
                   icon: Icons.restaurant_menu_rounded,
                   title: "Mahsulot yo'q",
-                  message: "Yangi mahsulot qo'shing va u kassada\n"
+                  message:
+                      "Yangi mahsulot qo'shing va u kassada\n"
                       "darhol paydo bo'ladi.",
                   action: ElevatedButton.icon(
                     onPressed: () => showItemDialog(
                       context,
                       category: _cat == "Hammasi"
                           ? (store.categories.isEmpty
-                              ? ""
-                              : store.categories.first)
+                                ? ""
+                                : store.categories.first)
                           : _cat,
                     ),
                     icon: const Icon(Icons.add_rounded, size: 19),
@@ -132,8 +140,7 @@ class _MenuPageState extends State<MenuPage> {
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(pad, 0, pad, 28),
                 sliver: SliverGrid(
-                  gridDelegate:
-                      const SliverGridDelegateWithMaxCrossAxisExtent(
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: 260,
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
@@ -188,6 +195,8 @@ class _MenuPageState extends State<MenuPage> {
   }
 
   Future<void> _editCategory(BuildContext context, String name) async {
+    final count = store.itemsOf(name).length;
+
     final res = await showDialog<String>(
       context: context,
       builder: (ctx) => DialogForm(
@@ -195,23 +204,72 @@ class _MenuPageState extends State<MenuPage> {
         builder: (ctx, f, setLocal) => AlertDialog(
           title: const Text("Kategoriya"),
           content: SizedBox(
-            width: 320,
-            child: TextField(
-              controller: f[0],
-              autofocus: true,
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.category_outlined),
+            width: 360,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    controller: f[0],
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.sentences,
+                    onSubmitted: (v) => Navigator.pop(ctx, v),
+                    decoration: const InputDecoration(
+                      labelText: "Kategoriya nomi",
+                      prefixIcon: Icon(Icons.category_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.inventory_2_outlined,
+                        size: 14,
+                        color: Ink3.textFaint,
+                      ),
+                      const SizedBox(width: 7),
+                      Text(
+                        count == 0
+                            ? "Bu kategoriya hozircha bo'sh"
+                            : "Ichida $count ta mahsulot bor",
+                        style: const TextStyle(
+                          color: Ink3.textFaint,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  const Divider(height: 1),
+                  const SizedBox(height: 14),
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.pop(ctx, _deleteMarker),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Ink3.red,
+                      side: BorderSide(color: Ink3.red.withValues(alpha: 0.4)),
+                    ),
+                    icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                    label: const Text("Kategoriyani o'chirish"),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    count == 0
+                        ? "Kategoriya ro'yxatdan olib tashlanadi."
+                        : "Kategoriya bilan birga $count ta mahsulot ham o'chadi.",
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Ink3.textFaint,
+                      fontSize: 11.5,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-          actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+          actionsPadding: const EdgeInsets.fromLTRB(20, 4, 20, 18),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, "__delete__"),
-              style: TextButton.styleFrom(foregroundColor: Ink3.red),
-              child: const Text("O'chirish"),
-            ),
-            const Spacer(),
             TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: const Text("Bekor qilish"),
@@ -224,14 +282,17 @@ class _MenuPageState extends State<MenuPage> {
         ),
       ),
     );
-    if (res == null) return;
-    if (res == "__delete__") {
-      if (!context.mounted) return;
+
+    if (res == null || !context.mounted) return;
+
+    if (res == _deleteMarker) {
       final ok = await askConfirm(
         context,
         title: "Kategoriyani o'chirish",
-        message: "\"$name\" va undagi ${store.itemsOf(name).length} ta "
-            "mahsulot o'chiriladi.",
+        message: count == 0
+            ? "\"$name\" o'chirilsinmi?"
+            : "\"$name\" va undagi $count ta mahsulot o'chiriladi. "
+                  "Buni ortga qaytarib bo'lmaydi.",
         confirmText: "O'chirish",
         danger: true,
       );
@@ -241,8 +302,42 @@ class _MenuPageState extends State<MenuPage> {
       }
       return;
     }
-    store.renameCategory(name, res);
-    setState(() => _cat = res.trim());
+
+    final newName = res.trim();
+    if (newName.isEmpty || newName == name) return;
+    if (store.categories.contains(newName)) {
+      toast(context, "Bunday kategoriya allaqachon bor", color: Ink3.red);
+      return;
+    }
+    store.renameCategory(name, newName);
+    setState(() => _cat = newName);
+  }
+}
+
+/// Menyuni qanday boshqarish kerakligini qisqa tushuntiradi.
+class _MenuHint extends StatelessWidget {
+  const _MenuHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Icon(Icons.info_outline_rounded, size: 14, color: Ink3.textFaint),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Text(
+            "Mahsulotni tahrirlash uchun ustiga bosing, o'chirish uchun "
+            "savat belgisini. Kategoriyani tanlasangiz, yonida uni "
+            "o'zgartirish tugmasi chiqadi.",
+            style: TextStyle(
+              color: Ink3.textFaint,
+              fontSize: 11.5,
+              height: 1.35,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -263,28 +358,50 @@ class _CatChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final chip = ChipButton(
+      label: label,
+      selected: selected,
+      count: count,
+      onTap: onTap,
+    );
+    if (onEdit == null) return chip;
+
     return GestureDetector(
       onLongPress: onEdit,
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          ChipButton(
-            label: label,
-            selected: selected,
-            count: count,
-            onTap: onTap,
-          ),
-          if (selected && onEdit != null)
-            IconButton(
-              tooltip: "Kategoriyani tahrirlash",
-              onPressed: onEdit,
-              padding: const EdgeInsets.all(4),
-              constraints: const BoxConstraints(),
-              icon: const Icon(
-                Icons.edit_outlined,
-                size: 15,
-                color: Ink3.textFaint,
+          chip,
+          // Tanlangan kategoriya yonida ko'rinadigan tahrirlash tugmasi.
+          if (selected) ...[
+            const SizedBox(width: 6),
+            Tooltip(
+              message: "Nomini o'zgartirish yoki o'chirish",
+              child: Material(
+                color: Ink3.gold.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  onTap: onEdit,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Ink3.gold.withValues(alpha: 0.45),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.edit_rounded,
+                      size: 17,
+                      color: Ink3.gold,
+                    ),
+                  ),
+                ),
               ),
             ),
+          ],
         ],
       ),
     );
@@ -351,11 +468,7 @@ class _ItemCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(13),
               border: Border.all(color: Ink3.stroke),
             ),
-            child: Icon(
-              iconFor(item.icon),
-              size: 21,
-              color: Ink3.goldSoft,
-            ),
+            child: Icon(iconFor(item.icon), size: 21, color: Ink3.goldSoft),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -389,16 +502,13 @@ class _ItemCard extends StatelessWidget {
                   item.category,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Ink3.textFaint,
-                    fontSize: 11.5,
-                  ),
+                  style: const TextStyle(color: Ink3.textFaint, fontSize: 11.5),
                 ),
               ],
             ),
           ),
           IconButton(
-            tooltip: "O'chirish",
+            tooltip: "Mahsulotni o'chirish",
             onPressed: () async {
               final ok = await askConfirm(
                 context,
@@ -409,10 +519,10 @@ class _ItemCard extends StatelessWidget {
               );
               if (ok) store.deleteItem(item.id);
             },
-            icon: const Icon(
+            icon: Icon(
               Icons.delete_outline_rounded,
               size: 18,
-              color: Ink3.textFaint,
+              color: Ink3.red.withValues(alpha: 0.65),
             ),
           ),
         ],
@@ -547,7 +657,8 @@ Future<void> showItemDialog(
             ElevatedButton(
               onPressed: () {
                 final name = nameC.text.trim();
-                final price = int.tryParse(
+                final price =
+                    int.tryParse(
                       priceC.text.replaceAll(RegExp(r"[^0-9]"), ""),
                     ) ??
                     0;
