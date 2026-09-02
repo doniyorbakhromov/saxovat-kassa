@@ -62,6 +62,7 @@ Parolni `Sozlama -> Kirish paroli` bo'limidan o'zgartirish mumkin.
 
 **Xavfsizlik**
 - Raqamli parol (PIN) bilan kirish
+- 5 marta xato terilsa, kutish vaqti boshlanadi (30 s, keyin uzayib boradi)
 - **Avtomatik qulflash** - kassa belgilangan vaqt tegilmasa (boshlang'ich
   qiymat 10 daqiqa) o'zi parol ekraniga qaytadi. Ochiq buyurtmalar
   saqlanib qoladi, hech narsa yo'qolmaydi. `Sozlama` dan o'chirish yoki
@@ -192,6 +193,21 @@ raqamli parol (PIN) ishlatiladi.
 > qo'yilmaydi. `anon` kalit ochiq bo'lishi normal: himoya RLS qoidalari va
 > foydalanuvchi kirishi orqali ta'minlanadi.
 
+**6. Ochiq ro'yxatdan o'tishni o'chiring (MUHIM)**
+
+`Authentication` -> `Sign In / Providers` -> `Email` -> **"Allow new users
+to sign up"** ni o'chiring.
+
+Bu qadam majburiy: `anon` kalit sayt kodida ochiq turadi, shuning uchun
+ro'yxatdan o'tish yoqiq qolsa, istalgan odam o'ziga hisob ochib bazaga
+kira olardi.
+
+**7. Qoidalarni qattiqlashtiring**
+
+`SQL Editor` da `supabase/harden.sql` ni ishga tushiring. U ruxsat
+berilgan foydalanuvchilar ro'yxatini yaratadi va huquqni "kirgan har
+qanday odam" dan "ro'yxatdagi odam" ga toraytiradi.
+
 **5. Lokalda sinab ko'ring**
 
 `env.example.json` dan nusxa olib `env.json` yarating:
@@ -280,6 +296,7 @@ lib/
       settings_page.dart       sozlamalar
 supabase/
   schema.sql                   baza jadvallari va xavfsizlik qoidalari
+  harden.sql                   huquqlarni ruxsat ro'yxati bilan cheklash
 scripts/
   vercel-build.sh              Vercel uchun build skripti
 vercel.json                    deploy sozlamalari

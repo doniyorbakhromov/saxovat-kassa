@@ -1,3 +1,4 @@
+import "dart:async";
 import "dart:math" as math;
 
 import "package:flutter/material.dart";
@@ -16,8 +17,17 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
+  /// Nechta xato urinishdan keyin kutish boshlanadi.
+  static const int _maxTries = 5;
+
   String _pin = "";
   bool _error = false;
+
+  int _fails = 0;
+  int _blockCount = 0;
+  DateTime? _blockedUntil;
+  Timer? _blockTicker;
+
   late final AnimationController _shake = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 460),
@@ -25,12 +35,20 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   void dispose() {
+    _blockTicker?.cancel();
     _shake.dispose();
     super.dispose();
   }
 
+  bool get _blocked =>
+      _blockedUntil != null && DateTime.now().isBefore(_blockedUntil!);
+
+  int get _waitLeft => _blockedUntil == null
+      ? 0
+      : _blockedUntil!.difference(DateTime.now()).inSeconds + 1;
+
   void _press(String d) {
-    if (_pin.length >= 8) return;
+    if (_blocked || _pin.length >= 8) return;
     setState(() {
       _pin += d;
       _error = false;
@@ -39,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _back() {
-    if (_pin.isEmpty) return;
+    if (_blocked || _pin.isEmpty) return;
     setState(() {
       _pin = _pin.substring(0, _pin.length - 1);
       _error = false;
@@ -47,8 +65,33 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _submit() {
-    if (store.login(_pin)) return;
+    if (_blocked) return;
+    if (store.login(_pin)) {
+      _fails = 0;
+      _blockCount = 0;
+      return;
+    }
+
     HapticFeedback.heavyImpact();
+    _fails++;
+    if (_fails >= _maxTries) {
+      _fails = 0;
+      _blockCount++;
+      // 30 s, keyin 1 daq, 2 daq ... ko'pi bilan 5 daqiqa.
+      final seconds = (30 * (1 << (_blockCount - 1))).clamp(30, 300);
+      _blockedUntil = DateTime.now().add(Duration(seconds: seconds));
+      _blockTicker?.cancel();
+      _blockTicker = Timer.periodic(const Duration(seconds: 1), (t) {
+        if (!mounted) return;
+        if (!_blocked) {
+          t.cancel();
+          setState(() => _error = false);
+        } else {
+          setState(() {});
+        }
+      });
+    }
+
     setState(() {
       _error = true;
       _pin = "";
@@ -65,7 +108,9 @@ class _LoginScreenState extends State<LoginScreen>
       body: Focus(
         autofocus: true,
         onKeyEvent: (node, event) {
-          if (event is! KeyDownEvent) return KeyEventResult.ignored;
+          if (event is! KeyDownEvent || _blocked) {
+            return KeyEventResult.ignored;
+          }
           final ch = event.character;
           if (ch != null && ch.length == 1 && "0123456789".contains(ch)) {
             _press(ch);
@@ -136,11 +181,17 @@ class _LoginScreenState extends State<LoginScreen>
                           ),
                           SizedBox(height: compact ? 20 : 34),
                           Text(
-                            _error
-                                ? "Parol noto'g'ri. Qaytadan urinib ko'ring"
-                                : "Davom etish uchun parolni kiriting",
+                            _blocked
+                                ? "Juda ko'p urinish. "
+                                    "$_waitLeft soniyadan keyin urinib ko'ring"
+                                : _error
+                                    ? "Parol noto'g'ri. Qaytadan urinib ko'ring"
+                                    : "Davom etish uchun parolni kiriting",
+                            textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: _error ? Ink3.red : Ink3.textDim,
+                              color: (_error || _blocked)
+                                  ? Ink3.red
+                                  : Ink3.textDim,
                               fontSize: 13.5,
                               fontWeight: FontWeight.w600,
                             ),
@@ -164,11 +215,14 @@ class _LoginScreenState extends State<LoginScreen>
                             ),
                           ),
                           SizedBox(height: compact ? 22 : 34),
-                          _Keypad(
-                            onDigit: _press,
-                            onBack: _back,
-                            onEnter: _submit,
-                            compact: compact,
+                          Opacity(
+                            opacity: _blocked ? 0.4 : 1,
+                            child: _Keypad(
+                              onDigit: _press,
+                              onBack: _back,
+                              onEnter: _submit,
+                              compact: compact,
+                            ),
                           ),
                           const SizedBox(height: 26),
                           Text(
