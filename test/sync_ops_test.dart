@@ -149,6 +149,26 @@ void main() {
     );
   });
 
+  test("bir xil jadval amallari ketma-ket turadi (guruhlash uchun)", () {
+    store.addTable("A", "Zal", 4);
+    store.addTable("B", "Zal", 4);
+    store.addItem("X", 1000, "Pivo", "pivo");
+    store.addItem("Y", 2000, "Pivo", "pivo");
+
+    // Bir xil jadval amallari uzluksiz bo'lak bo'lib turishi kerak,
+    // aks holda ular bitta so'rovga birlashmaydi.
+    final entities = store.ops.pending.map((o) => o.entity).toList();
+    final blocks = <String>[];
+    for (final e in entities) {
+      if (blocks.isEmpty || blocks.last != e) blocks.add(e);
+    }
+    expect(
+      blocks.length,
+      blocks.toSet().length,
+      reason: "har bir jadval bir marta uchrashi kerak: $blocks",
+    );
+  });
+
   test("stol yopilganda chek va qator o'chirish navbatga tushadi", () async {
     final t = store.tables.first;
     store.addToOrder(t.id, store.menu.first);

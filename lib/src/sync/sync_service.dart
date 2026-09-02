@@ -201,10 +201,12 @@ class SyncService extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    // Yuborilmagan o'zgarishlar bo'lsa - avval jo'natib ko'ramiz.
+    // Navbat tozalanmaydi: qayta ulanganda yuboriladi.
+    await _flush();
     await _stopLive();
     await _client?.auth.signOut();
     store.trackOps = false;
-    store.ops.clear();
     _set(SyncStatus.signedOut);
   }
 
@@ -242,8 +244,21 @@ class SyncService extends ChangeNotifier {
     _set(SyncStatus.syncing);
     try {
       final batch = store.ops.pending;
-      for (final op in batch) {
-        await _send(client, op);
+      // Bir xil jadvalga tegishli amallarni bitta so'rovda yuboramiz -
+      // birinchi ulanishda yuzlab so'rov o'rniga bir nechtasi ketadi.
+      var i = 0;
+      while (i < batch.length) {
+        final first = batch[i];
+        final group = <PendingOp>[first];
+        var j = i + 1;
+        while (j < batch.length &&
+            batch[j].entity == first.entity &&
+            batch[j].isDelete == first.isDelete) {
+          group.add(batch[j]);
+          j++;
+        }
+        await _sendGroup(client, first.entity, first.isDelete, group);
+        i = j;
       }
       store.ops.done(batch);
       _error = null;
@@ -259,18 +274,32 @@ class SyncService extends ChangeNotifier {
     }
   }
 
-  Future<void> _send(SupabaseClient client, PendingOp op) async {
-    final key = _pk[op.entity] ?? "id";
-    if (op.isDelete) {
-      await client.from(op.entity).delete().eq(key, op.rowId);
-    } else {
-      await client.from(op.entity).upsert({
-        ...op.data,
-        if (op.entity != "receipts") "updated_by": store.clientId,
-        if (op.entity != "receipts")
-          "updated_at": DateTime.now().toUtc().toIso8601String(),
-      });
+  Future<void> _sendGroup(
+    SupabaseClient client,
+    String entity,
+    bool isDelete,
+    List<PendingOp> group,
+  ) async {
+    final key = _pk[entity] ?? "id";
+
+    if (isDelete) {
+      await client
+          .from(entity)
+          .delete()
+          .inFilter(key, group.map((o) => o.rowId).toList());
+      return;
     }
+
+    final now = DateTime.now().toUtc().toIso8601String();
+    final rows = group
+        .map((o) => <String, Object?>{
+              ...o.data,
+              // receipts jadvalida bu ustunlar yo'q - u o'zgarmas yozuv.
+              if (entity != "receipts") "updated_by": store.clientId,
+              if (entity != "receipts") "updated_at": now,
+            })
+        .toList();
+    await client.from(entity).upsert(rows);
   }
 
   // ------------------------------------------------------------- olish
