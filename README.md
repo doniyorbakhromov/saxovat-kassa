@@ -118,7 +118,9 @@ Ilova **avval lokal** tartibida ishlaydi:
 
 1. Har qanday o'zgarish darhol qurilmaning o'z bazasiga yoziladi -
    shuning uchun ekran hech qachon kutib turmaydi.
-2. Keyin fonda Supabase bazasiga yuboriladi.
+2. So'ng navbat orqali Supabase'ga yuboriladi.
+3. Boshqa qurilmalardagi o'zgarishlar **jonli kanal** orqali darhol
+   yetib keladi - sahifani yangilash shart emas.
 
 Qurilmada ikki joyda saqlanadi:
 
@@ -127,33 +129,40 @@ Qurilmada ikki joyda saqlanadi:
 | Stollar, menyu, sozlamalar | localStorage (~5 KB) | kichik, tez-tez o'zgaradi |
 | **Cheklar arxivi** | **IndexedDB** | hajm chegarasi yo'q, cheklanmaydi |
 
-Cheklar alohida bazada turgani muhim: localStorage'da ular ~2-3 oydan keyin
-5 MB limitiga urilardi, ustiga har bir yangi buyurtma qatoriga butun arxiv
-qayta yozilib, kassa sekinlashardi. IndexedDB'da esa **hech qanday cheklov
-yo'q** - yangi chek qo'shilganda faqat o'sha bitta yozuv yoziladi, eski
-cheklar joyida qoladi.
-
 Internet uzilsa kassa ishlashda davom etadi, o'zgarishlar navbatda turadi
 va ulanish tiklanishi bilan avtomatik yuboriladi. Yuqori panelda holat
 ko'rinib turadi:
 
 | Belgi | Ma'nosi |
 |---|---|
-| Bulutda saqlangan | hammasi yuborilgan |
+| Jonli ulangan | hammasi bulutda, boshqa qurilmalar bilan bog'langan |
+| Bulutda saqlangan | yuborilgan, lekin jonli kanal hali ulanmagan |
 | Saqlanmoqda... | ayni damda yuborilyapti |
-| Ulanish yo'q | internet yo'q, keyin yuboriladi |
-| Bulutga ulanmagan | qurilma hali ulanmagan |
+| Ulanish yo'q - N ta kutmoqda | internet yo'q, N ta o'zgarish navbatda |
 
-Bazada ikkita jadval bor:
+### Ko'p qurilmali ishlash
 
-- `kassa_state` - stollar, menyu, kategoriyalar va sozlamalar (bitta qator)
-- `receipts` - yopilgan cheklar (har biri alohida qator, cheklovsiz)
+Bazada har bir stol, har bir buyurtma qatori, har bir mahsulot -
+**alohida qator**. Shuning uchun ikki qurilma turli narsalarni
+o'zgartirsa, ular to'qnashmaydi: kompyuterda Stol 1 ga pivo qo'shilsa,
+telefonda Stol 3 ga shashlik qo'shilsa - ikkalasi ham saqlanadi.
 
-Cheklar alohida jadvalda turgani uchun hisobotlarni to'g'ridan-to'g'ri SQL
-bilan olish mumkin (namunalari `supabase/schema.sql` oxirida).
+Bitta qatorni ikki qurilma bir vaqtda o'zgartirsa (masalan ayni bir
+mahsulot sonini), oxirgi o'zgarish qoladi.
 
-Agar Supabase kalitlari berilmasa, ilova avvalgidek faqat shu brauzerda
-ishlayveradi - hech narsa buzilmaydi.
+Har bir qurilma o'z belgisiga ega: bulutdan qaytgan **o'z** o'zgarishini
+qayta qo'llamaydi. Hali yuborilmagan mahalliy o'zgarish esa bulutdagi
+eski nusxadan ustun turadi.
+
+Jadvallar:
+
+- `tables` - stollar
+- `order_lines` - ochiq buyurtma qatorlari
+- `menu_items`, `categories` - menyu
+- `settings` - sozlamalar (bitta qator)
+- `receipts` - yopilgan cheklar (cheklovsiz)
+
+Agar Supabase kalitlari berilmasa, ilova faqat shu brauzerda ishlayveradi.
 
 ---
 
@@ -168,8 +177,9 @@ saqlab qo'ying.
 **2. Jadvallarni yarating**
 
 Supabase panelida `SQL Editor` -> `New query`. Shu repodagi
-`supabase/schema.sql` faylini to'liq nusxalab qo'ying va `Run` bosing.
-Bu jadvallarni, indekslarni va xavfsizlik qoidalarini (RLS) yaratadi.
+`supabase/schema_v2.sql` faylini to'liq nusxalab qo'ying va `Run` bosing.
+Bu jadvallarni, xavfsizlik qoidalarini (RLS) va real vaqtda uzatishni
+sozlaydi. Skriptni bir necha marta ishga tushirish xavfsiz.
 
 **3. Kassa foydalanuvchisini yarating**
 
@@ -281,7 +291,8 @@ lib/
       idb_factory_stub.dart    testlar uchun xotiradagi baza
     sync/
       supabase_config.dart     build vaqtidagi kalitlar
-      sync_service.dart        bulut bilan sinxronizatsiya
+      pending_ops.dart         yuborilmagan amallar navbati
+      sync_service.dart        real vaqtda sinxronizatsiya
     widgets/
       common.dart              karta, chip, bo'sh holat, dialog yordamchilari
       receipt_view.dart        chek ko'rinishi
@@ -295,7 +306,8 @@ lib/
       history_page.dart        hisobot va cheklar
       settings_page.dart       sozlamalar
 supabase/
-  schema.sql                   baza jadvallari va xavfsizlik qoidalari
+  schema_v2.sql                ko'p qurilmali sxema (shu ishlatiladi)
+  schema.sql                   birinchi versiya (tarix uchun)
   harden.sql                   huquqlarni ruxsat ro'yxati bilan cheklash
 scripts/
   vercel-build.sh              Vercel uchun build skripti

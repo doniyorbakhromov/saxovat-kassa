@@ -6,6 +6,7 @@ import "package:shared_preferences/shared_preferences.dart";
 
 import "data/receipt_db.dart";
 import "models.dart";
+import "sync/pending_ops.dart";
 import "utils.dart";
 
 /// Barcha ma'lumotlar shu klassda saqlanadi va brauzer xotirasiga yoziladi.
@@ -35,8 +36,55 @@ class AppStore extends ChangeNotifier {
   /// Bulutdagi holatning oxirgi ko'rilgan versiyasi.
   DateTime? remoteUpdatedAt;
 
+  /// Shu qurilmaning belgisi. Bulutdan qaytgan o'z o'zgarishlarini
+  /// qayta qo'llamaslik uchun kerak.
+  String clientId = "";
+
+  /// Bulutga yuborilmagan amallar.
+  final OpQueue ops = OpQueue();
+
+  /// Amallar faqat qurilma bulutga ulangandagina yoziladi.
+  /// Aks holda navbat cheksiz o'sib, brauzer xotirasini to'ldirardi.
+  bool trackOps = false;
+
+  /// Bulutdan kelgan o'zgarishni qo'llayotgan paytimizda yangi amal
+  /// yozilmasligi kerak - aks holda cheksiz aylanish paydo bo'ladi.
+  bool _applyingRemote = false;
+
   /// Har bir o'zgarishdan keyin chaqiriladi (sinxronizatsiya uchun).
   void Function()? onMutated;
+
+  // ------------------------------------------------------------ amallar
+
+  void _opUpsert(String entity, String rowId, Map<String, Object?> data) {
+    if (_applyingRemote || !trackOps) return;
+    ops.upsert(entity, rowId, data);
+  }
+
+  void _opDelete(String entity, String rowId) {
+    if (_applyingRemote || !trackOps) return;
+    ops.delete(entity, rowId);
+  }
+
+  void _opTable(BarTable t) => _opUpsert("tables", t.id, t.toRow());
+
+  void _opLine(String tableId, OrderLine l) =>
+      _opUpsert("order_lines", l.id, l.toRow(tableId));
+
+  void _opSettings() =>
+      _opUpsert("settings", "main", settingsRowForRemote());
+
+  /// Bulutdan kelgan o'zgarishni qo'llaydi (amal yozilmaydi).
+  void applyRemote(void Function() change) {
+    _applyingRemote = true;
+    try {
+      change();
+    } finally {
+      _applyingRemote = false;
+    }
+    _persist();
+    notifyListeners();
+  }
 
   // ---------------------------------------------------------------- yuklash
 
@@ -54,6 +102,8 @@ class AppStore extends ChangeNotifier {
         _persist();
       }
     }
+    if (clientId.isEmpty) clientId = newId();
+
     await _loadReceipts();
 
     _ready = true;
@@ -67,6 +117,8 @@ class AppStore extends ChangeNotifier {
     receipts = <Receipt>[];
     _legacyReceipts = <Receipt>[];
     remoteUpdatedAt = null;
+    trackOps = false;
+    ops.clear();
   }
 
   /// Cheklarni IndexedDB'dan yuklaydi va eski nusxalarni ko'chiradi.
@@ -116,6 +168,8 @@ class AppStore extends ChangeNotifier {
         : AppSettings();
     settings.pin = _decodePin(settings.pin);
     remoteUpdatedAt = DateTime.tryParse(asStr(j["remoteUpdatedAt"]));
+    clientId = asStr(j["clientId"]);
+    ops.loadJson(j["pendingOps"] as List<Object?>? ?? const []);
     if (categories.isEmpty) {
       categories = menu.map((e) => e.category).toSet().toList();
     }
@@ -130,6 +184,8 @@ class AppStore extends ChangeNotifier {
           "pin": _encodePin(settings.pin),
         },
         "remoteUpdatedAt": remoteUpdatedAt?.toIso8601String(),
+        "clientId": clientId,
+        "pendingOps": ops.toJson(),
       };
 
   void _persist() {
@@ -182,21 +238,25 @@ class AppStore extends ChangeNotifier {
 
   void setPin(String pin) {
     settings.pin = pin;
+    _opSettings();
     _changed();
   }
 
   void setVenueName(String name) {
     settings.venueName = name.trim().isEmpty ? "SAXOVAT BAR" : name.trim();
+    _opSettings();
     _changed();
   }
 
   void setAutoLockMinutes(int m) {
     settings.autoLockMinutes = m.clamp(0, 120);
+    _opSettings();
     _changed();
   }
 
   void setServicePercent(int p) {
     settings.servicePercent = p.clamp(0, 30);
+    _opSettings();
     _changed();
   }
 
@@ -225,6 +285,7 @@ class AppStore extends ChangeNotifier {
       seats: seats,
     );
     tables.add(t);
+    _opTable(t);
     _changed();
     return t;
   }
@@ -235,11 +296,14 @@ class AppStore extends ChangeNotifier {
     t.name = name.trim().isEmpty ? t.name : name.trim();
     t.zone = zone.trim().isEmpty ? "Zal" : zone.trim();
     t.seats = seats;
+    _opTable(t);
     _changed();
   }
 
   void deleteTable(String id) {
     tables.removeWhere((t) => t.id == id);
+    // Buyurtma qatorlari bazada avtomatik o'chadi (cascade).
+    _opDelete("tables", id);
     _changed();
   }
 
@@ -257,7 +321,9 @@ class AppStore extends ChangeNotifier {
       n++;
       if (taken.contains(name.toLowerCase())) continue;
       taken.add(name.toLowerCase());
-      tables.add(BarTable(id: newId(), name: name, zone: z, seats: seats));
+      final t = BarTable(id: newId(), name: name, zone: z, seats: seats);
+      tables.add(t);
+      _opTable(t);
       added++;
     }
     _changed();
@@ -269,22 +335,27 @@ class AppStore extends ChangeNotifier {
   void addToOrder(String tableId, MenuItem item, {int qty = 1}) {
     final t = tableById(tableId);
     if (t == null) return;
+    final wasClosed = t.openedAt == null;
     t.openedAt ??= DateTime.now();
+
     final idx = t.lines.indexWhere((l) => l.itemId == item.id && l.note.isEmpty);
+    late final OrderLine line;
     if (idx >= 0) {
-      t.lines[idx].qty += qty;
+      line = t.lines[idx]..qty += qty;
     } else {
-      t.lines.add(
-        OrderLine(
-          id: newId(),
-          itemId: item.id,
-          name: item.name,
-          price: item.price,
-          qty: qty,
-          addedAt: DateTime.now(),
-        ),
+      line = OrderLine(
+        id: newId(),
+        itemId: item.id,
+        name: item.name,
+        price: item.price,
+        qty: qty,
+        addedAt: DateTime.now(),
       );
+      t.lines.add(line);
     }
+
+    if (wasClosed) _opTable(t);
+    _opLine(t.id, line);
     _changed();
   }
 
@@ -295,8 +366,16 @@ class AppStore extends ChangeNotifier {
     if (idx < 0) return;
     final line = t.lines[idx];
     line.qty += delta;
-    if (line.qty <= 0) t.lines.removeAt(idx);
-    if (t.lines.isEmpty) t.openedAt = null;
+    if (line.qty <= 0) {
+      t.lines.removeAt(idx);
+      _opDelete("order_lines", line.id);
+    } else {
+      _opLine(t.id, line);
+    }
+    if (t.lines.isEmpty) {
+      t.openedAt = null;
+      _opTable(t);
+    }
     _changed();
   }
 
@@ -304,7 +383,11 @@ class AppStore extends ChangeNotifier {
     final t = tableById(tableId);
     if (t == null) return;
     t.lines.removeWhere((l) => l.id == lineId);
-    if (t.lines.isEmpty) t.openedAt = null;
+    _opDelete("order_lines", lineId);
+    if (t.lines.isEmpty) {
+      t.openedAt = null;
+      _opTable(t);
+    }
     _changed();
   }
 
@@ -312,7 +395,10 @@ class AppStore extends ChangeNotifier {
     final t = tableById(tableId);
     if (t == null) return;
     for (final l in t.lines) {
-      if (l.id == lineId) l.note = note.trim();
+      if (l.id == lineId) {
+        l.note = note.trim();
+        _opLine(t.id, l);
+      }
     }
     _changed();
   }
@@ -321,8 +407,12 @@ class AppStore extends ChangeNotifier {
   void cancelOrder(String tableId) {
     final t = tableById(tableId);
     if (t == null) return;
+    for (final l in t.lines) {
+      _opDelete("order_lines", l.id);
+    }
     t.lines = <OrderLine>[];
     t.openedAt = null;
+    _opTable(t);
     _changed();
   }
 
@@ -335,6 +425,11 @@ class AppStore extends ChangeNotifier {
     b.openedAt = a.openedAt;
     a.lines = <OrderLine>[];
     a.openedAt = null;
+    for (final l in b.lines) {
+      _opLine(b.id, l);
+    }
+    _opTable(a);
+    _opTable(b);
     _changed();
     return true;
   }
@@ -385,8 +480,14 @@ class AppStore extends ChangeNotifier {
 
     receipts.insert(0, r);
     await _receiptDb.putAll([r]);
+    _opUpsert("receipts", r.id, r.toRow());
+
+    for (final l in t.lines) {
+      _opDelete("order_lines", l.id);
+    }
     t.lines = <OrderLine>[];
     t.openedAt = null;
+    _opTable(t);
     _changed();
     return r;
   }
@@ -400,6 +501,7 @@ class AppStore extends ChangeNotifier {
     final n = name.trim();
     if (n.isEmpty || categories.contains(n)) return;
     categories.add(n);
+    _opUpsert("categories", n, {"name": n, "position": categories.length});
     _changed();
   }
 
@@ -409,15 +511,24 @@ class AppStore extends ChangeNotifier {
     final i = categories.indexOf(oldName);
     if (i < 0) return;
     categories[i] = n;
+    _opDelete("categories", oldName);
+    _opUpsert("categories", n, {"name": n, "position": i + 1});
     for (final m in menu) {
-      if (m.category == oldName) m.category = n;
+      if (m.category == oldName) {
+        m.category = n;
+        _opUpsert("menu_items", m.id, m.toRow());
+      }
     }
     _changed();
   }
 
   void deleteCategory(String name) {
     categories.remove(name);
+    for (final m in menu.where((m) => m.category == name)) {
+      _opDelete("menu_items", m.id);
+    }
     menu.removeWhere((m) => m.category == name);
+    _opDelete("categories", name);
     _changed();
   }
 
@@ -430,7 +541,14 @@ class AppStore extends ChangeNotifier {
       icon: icon,
     );
     menu.add(item);
-    if (!categories.contains(category)) categories.add(category);
+    _opUpsert("menu_items", item.id, item.toRow());
+    if (!categories.contains(category)) {
+      categories.add(category);
+      _opUpsert("categories", category, {
+        "name": category,
+        "position": categories.length,
+      });
+    }
     _changed();
     return item;
   }
@@ -448,14 +566,22 @@ class AppStore extends ChangeNotifier {
         m.price = price;
         m.category = category;
         m.icon = icon;
+        _opUpsert("menu_items", m.id, m.toRow());
       }
     }
-    if (!categories.contains(category)) categories.add(category);
+    if (!categories.contains(category)) {
+      categories.add(category);
+      _opUpsert("categories", category, {
+        "name": category,
+        "position": categories.length,
+      });
+    }
     _changed();
   }
 
   void deleteItem(String id) {
     menu.removeWhere((m) => m.id == id);
+    _opDelete("menu_items", id);
     _changed();
   }
 
@@ -481,78 +607,208 @@ class AppStore extends ChangeNotifier {
   Future<void> deleteReceipt(String id) async {
     receipts.removeWhere((r) => r.id == id);
     await _receiptDb.delete(id);
+    _opDelete("receipts", id);
     _changed();
   }
 
   // ------------------------------------------------------------- bulut bilan
 
-  /// Bulutga yuboriladigan holat (cheklar alohida jadvalda).
-  Map<String, Object?> stateForRemote() => {
-        "tables": tables.map((e) => e.toJson()).toList(),
-        "menu": menu.map((e) => e.toJson()).toList(),
-        "categories": categories,
-        "settings": {
-          ...settings.toJson(),
-          "pin": _encodePin(settings.pin),
-        },
-      };
+  /// Bulutdan kelgan o'zgarish shu qatorga tegishmi.
+  /// Agar shu qator uchun bizda hali yuborilmagan amal bo'lsa, bizniki
+  /// yangiroq - kelgan nusxani qo'llamaymiz.
+  bool _skipRemote(String entity, String rowId) => ops.hasRow(entity, rowId);
 
-  /// Bulutdagi holatni shu qurilmaga o'rnatadi.
-  void applyRemoteState(Map<String, Object?> data, DateTime updatedAt) {
-    tables = (data["tables"] as List<Object?>? ?? const [])
-        .whereType<Map<String, Object?>>()
-        .map(BarTable.fromJson)
-        .toList();
-    menu = (data["menu"] as List<Object?>? ?? const [])
-        .whereType<Map<String, Object?>>()
-        .map(MenuItem.fromJson)
-        .toList();
-    categories = (data["categories"] as List<Object?>? ?? const [])
-        .whereType<String>()
-        .toList();
-    final st = data["settings"];
-    if (st is Map<String, Object?>) {
-      settings = AppSettings.fromJson(st);
+  void applyRemoteTable(Map<String, Object?> row) {
+    final id = asStr(row["id"]);
+    if (id.isEmpty || _skipRemote("tables", id)) return;
+    applyRemote(() {
+      final incoming = BarTable.fromRow(row);
+      final idx = tables.indexWhere((t) => t.id == id);
+      if (idx < 0) {
+        tables.add(incoming);
+      } else {
+        final t = tables[idx];
+        t
+          ..name = incoming.name
+          ..zone = incoming.zone
+          ..seats = incoming.seats
+          ..openedAt = incoming.openedAt;
+      }
+    });
+  }
+
+  void removeRemoteTable(String id) {
+    if (id.isEmpty || _skipRemote("tables", id)) return;
+    applyRemote(() => tables.removeWhere((t) => t.id == id));
+  }
+
+  void applyRemoteLine(Map<String, Object?> row) {
+    final id = asStr(row["id"]);
+    final tableId = asStr(row["table_id"]);
+    if (id.isEmpty || _skipRemote("order_lines", id)) return;
+    applyRemote(() {
+      // Qator boshqa stolga ko'chgan bo'lishi mumkin - avval hammasidan olib
+      // tashlaymiz, keyin kerakli stolga qo'yamiz.
+      for (final t in tables) {
+        t.lines.removeWhere((l) => l.id == id);
+      }
+      final t = tableById(tableId);
+      if (t != null) t.lines.add(OrderLine.fromRow(row));
+    });
+  }
+
+  void removeRemoteLine(String id) {
+    if (id.isEmpty || _skipRemote("order_lines", id)) return;
+    applyRemote(() {
+      for (final t in tables) {
+        t.lines.removeWhere((l) => l.id == id);
+      }
+    });
+  }
+
+  void applyRemoteItem(Map<String, Object?> row) {
+    final id = asStr(row["id"]);
+    if (id.isEmpty || _skipRemote("menu_items", id)) return;
+    applyRemote(() {
+      final incoming = MenuItem.fromRow(row);
+      final idx = menu.indexWhere((m) => m.id == id);
+      if (idx < 0) {
+        menu.add(incoming);
+      } else {
+        menu[idx] = incoming;
+      }
+      if (!categories.contains(incoming.category) &&
+          incoming.category.isNotEmpty) {
+        categories.add(incoming.category);
+      }
+    });
+  }
+
+  void removeRemoteItem(String id) {
+    if (id.isEmpty || _skipRemote("menu_items", id)) return;
+    applyRemote(() => menu.removeWhere((m) => m.id == id));
+  }
+
+  void applyRemoteCategory(Map<String, Object?> row) {
+    final name = asStr(row["name"]);
+    if (name.isEmpty || _skipRemote("categories", name)) return;
+    applyRemote(() {
+      if (!categories.contains(name)) categories.add(name);
+    });
+  }
+
+  void removeRemoteCategory(String name) {
+    if (name.isEmpty || _skipRemote("categories", name)) return;
+    applyRemote(() {
+      categories.remove(name);
+      menu.removeWhere((m) => m.category == name);
+    });
+  }
+
+  void applyRemoteSettings(Map<String, Object?> row) {
+    if (_skipRemote("settings", "main")) return;
+    applyRemote(() {
+      settings = AppSettings.fromRow(row);
       settings.pin = _decodePin(settings.pin);
+    });
+  }
+
+  Future<void> applyRemoteReceipt(Map<String, Object?> row) async {
+    final id = asStr(row["id"]);
+    if (id.isEmpty || _skipRemote("receipts", id)) return;
+    final r = Receipt.fromRow(row);
+    final idx = receipts.indexWhere((x) => x.id == id);
+    if (idx < 0) {
+      receipts.add(r);
+      receipts.sort((a, b) => b.closedAt.compareTo(a.closedAt));
+    } else {
+      receipts[idx] = r;
     }
-    remoteUpdatedAt = updatedAt;
-    _persist();
+    await _receiptDb.putAll([r]);
     notifyListeners();
   }
 
-  /// Bulutdan kelgan cheklarni qo'shadi (mavjudlari tegilmaydi).
-  Future<void> mergeRemoteReceipts(List<Receipt> incoming) async {
+  Future<void> removeRemoteReceipt(String id) async {
+    if (id.isEmpty || _skipRemote("receipts", id)) return;
+    receipts.removeWhere((r) => r.id == id);
+    await _receiptDb.delete(id);
+    notifyListeners();
+  }
+
+  /// To'liq yuklab olish: bulutdagi holat shu qurilmaga to'liq o'rnatiladi.
+  /// Faqat navbat bo'shatilgandan keyin chaqiriladi.
+  Future<void> replaceFromRemote({
+    required List<Map<String, Object?>> tableRows,
+    required List<Map<String, Object?>> lineRows,
+    required List<Map<String, Object?>> itemRows,
+    required List<Map<String, Object?>> categoryRows,
+    required List<Map<String, Object?>> receiptRows,
+    Map<String, Object?>? settingsRow,
+  }) async {
+    applyRemote(() {
+      tables = tableRows.map(BarTable.fromRow).toList();
+      final byId = {for (final t in tables) t.id: t};
+      for (final row in lineRows) {
+        byId[asStr(row["table_id"])]?.lines.add(OrderLine.fromRow(row));
+      }
+      for (final t in tables) {
+        t.lines.sort((a, b) => a.addedAt.compareTo(b.addedAt));
+      }
+
+      menu = itemRows.map(MenuItem.fromRow).toList();
+      categories = categoryRows.map((r) => asStr(r["name"])).toList();
+      for (final m in menu) {
+        if (m.category.isNotEmpty && !categories.contains(m.category)) {
+          categories.add(m.category);
+        }
+      }
+
+      if (settingsRow != null) {
+        settings = AppSettings.fromRow(settingsRow);
+        settings.pin = _decodePin(settings.pin);
+      }
+    });
+
+    final incoming = receiptRows.map(Receipt.fromRow).toList();
     final known = receipts.map((r) => r.id).toSet();
     final fresh = incoming.where((r) => !known.contains(r.id)).toList();
-    if (fresh.isEmpty) return;
-    receipts.addAll(fresh);
-    receipts.sort((a, b) => b.closedAt.compareTo(a.closedAt));
-    await _receiptDb.putAll(fresh);
-    notifyListeners();
+    if (fresh.isNotEmpty) {
+      receipts.addAll(fresh);
+      receipts.sort((a, b) => b.closedAt.compareTo(a.closedAt));
+      await _receiptDb.putAll(fresh);
+      notifyListeners();
+    }
   }
 
-  List<Receipt> get unsyncedReceipts =>
-      receipts.where((r) => !r.synced).toList();
-
-  Future<void> markReceiptsSynced(Iterable<String> ids) async {
-    final set = ids.toSet();
-    final changed = <Receipt>[];
-    for (final r in receipts) {
-      if (set.contains(r.id)) {
-        r.synced = true;
-        changed.add(r);
+  /// Bulut bo'sh bo'lsa - shu qurilmadagi hamma narsani navbatga qo'yamiz.
+  void queueEverything() {
+    for (final t in tables) {
+      _opTable(t);
+      for (final l in t.lines) {
+        _opLine(t.id, l);
       }
     }
-    await _receiptDb.putAll(changed);
-  }
-
-  void setRemoteUpdatedAt(DateTime at) {
-    remoteUpdatedAt = at;
+    for (var i = 0; i < categories.length; i++) {
+      _opUpsert("categories", categories[i], {
+        "name": categories[i],
+        "position": i + 1,
+      });
+    }
+    for (final m in menu) {
+      _opUpsert("menu_items", m.id, m.toRow());
+    }
+    for (final r in receipts) {
+      _opUpsert("receipts", r.id, r.toRow());
+    }
+    _opSettings();
     _persist();
   }
 
-  /// Bu qurilmada haqiqiy ish qilinganmi (yoki hali namuna holatidami).
-  bool get hasLocalWork => receipts.isNotEmpty || tables.any((t) => t.isBusy);
+  /// Sozlamalar qatori - PIN berkitilgan holda.
+  Map<String, Object?> settingsRowForRemote() => {
+        ...settings.toRow(),
+        "pin": _encodePin(settings.pin),
+      };
 
   // ------------------------------------------------------- boshlang'ich baza
 

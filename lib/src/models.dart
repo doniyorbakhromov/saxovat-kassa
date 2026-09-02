@@ -27,6 +27,24 @@ class MenuItem {
         "active": active,
       };
 
+  Map<String, Object?> toRow() => {
+        "id": id,
+        "name": name,
+        "price": price,
+        "category": category,
+        "icon": icon,
+        "active": active,
+      };
+
+  static MenuItem fromRow(Map<String, Object?> r) => MenuItem(
+        id: asStr(r["id"], newId()),
+        name: asStr(r["name"], "Nomsiz"),
+        price: asInt(r["price"]),
+        category: asStr(r["category"], "Boshqa"),
+        icon: asStr(r["icon"], "boshqa"),
+        active: r["active"] != false,
+      );
+
   static MenuItem fromJson(Map<String, Object?> j) => MenuItem(
         id: asStr(j["id"], newId()),
         name: asStr(j["name"], "Nomsiz"),
@@ -68,6 +86,29 @@ class OrderLine {
         "note": note,
         "addedAt": addedAt.toIso8601String(),
       };
+
+  Map<String, Object?> toRow(String tableId) => {
+        "id": id,
+        "table_id": tableId,
+        "item_id": itemId,
+        "name": name,
+        "price": price,
+        "qty": qty,
+        "note": note,
+        "added_at": addedAt.toUtc().toIso8601String(),
+      };
+
+  static OrderLine fromRow(Map<String, Object?> r) => OrderLine(
+        id: asStr(r["id"], newId()),
+        itemId: asStr(r["item_id"]),
+        name: asStr(r["name"], "Nomsiz"),
+        price: asInt(r["price"]),
+        qty: asInt(r["qty"], 1),
+        note: asStr(r["note"]),
+        addedAt:
+            (DateTime.tryParse(asStr(r["added_at"])) ?? DateTime.now())
+                .toLocal(),
+      );
 
   static OrderLine fromJson(Map<String, Object?> j) => OrderLine(
         id: asStr(j["id"], newId()),
@@ -111,6 +152,23 @@ class BarTable {
         "openedAt": openedAt?.toIso8601String(),
         "lines": lines.map((l) => l.toJson()).toList(),
       };
+
+  /// Bulutdagi qator (buyurtma qatorlari alohida jadvalda).
+  Map<String, Object?> toRow() => {
+        "id": id,
+        "name": name,
+        "zone": zone,
+        "seats": seats,
+        "opened_at": openedAt?.toUtc().toIso8601String(),
+      };
+
+  static BarTable fromRow(Map<String, Object?> r) => BarTable(
+        id: asStr(r["id"], newId()),
+        name: asStr(r["name"], "Stol"),
+        zone: asStr(r["zone"], "Zal"),
+        seats: asInt(r["seats"], 4),
+        openedAt: DateTime.tryParse(asStr(r["opened_at"]))?.toLocal(),
+      );
 
   static BarTable fromJson(Map<String, Object?> j) => BarTable(
         id: asStr(j["id"], newId()),
@@ -274,6 +332,21 @@ class AppSettings {
         "pin": pin,
         "autoLockMinutes": autoLockMinutes,
       };
+
+  Map<String, Object?> toRow() => {
+        "id": "main",
+        "venue_name": venueName,
+        "service_percent": servicePercent,
+        "pin": pin,
+        "auto_lock_minutes": autoLockMinutes,
+      };
+
+  static AppSettings fromRow(Map<String, Object?> r) => AppSettings(
+        venueName: asStr(r["venue_name"], "SAXOVAT BAR"),
+        servicePercent: asInt(r["service_percent"]),
+        pin: asStr(r["pin"], "1234"),
+        autoLockMinutes: asInt(r["auto_lock_minutes"], 10),
+      );
 
   static AppSettings fromJson(Map<String, Object?> j) => AppSettings(
         venueName: asStr(j["venueName"], "SAXOVAT BAR"),
