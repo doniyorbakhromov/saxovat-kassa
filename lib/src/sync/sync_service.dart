@@ -383,9 +383,16 @@ class SyncService extends ChangeNotifier {
         .toList();
   }
 
+  /// Jonli kanal ulanmagan bo'lsa (masalan tarmoq WebSocket'ni to'sgan)
+  /// to'liq sinxronizatsiya qilamiz - shunda boshqa qurilmalardagi
+  /// o'zgarishlar baribir yetib keladi, faqat bir oz kechikib.
   Future<void> _flushAndMaybeReconnect() async {
-    await _flush();
-    if (!_live && isLinked) await _startLive();
+    if (!isLinked) return;
+    if (_live) {
+      await _flush();
+    } else {
+      await syncNow();
+    }
   }
 
   // -------------------------------------------------------- jonli kanal
