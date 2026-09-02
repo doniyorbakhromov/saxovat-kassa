@@ -190,6 +190,11 @@ class AppStore extends ChangeNotifier {
     _changed();
   }
 
+  void setAutoLockMinutes(int m) {
+    settings.autoLockMinutes = m.clamp(0, 120);
+    _changed();
+  }
+
   void setServicePercent(int p) {
     settings.servicePercent = p.clamp(0, 30);
     _changed();

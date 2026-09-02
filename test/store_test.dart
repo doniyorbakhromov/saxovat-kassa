@@ -25,6 +25,19 @@ void main() {
     expect(store.unlocked, isFalse);
   });
 
+  test("avtomatik qulflash sozlamasi saqlanadi va chegaralanadi", () {
+    expect(store.settings.autoLockMinutes, 10, reason: "boshlang'ich qiymat");
+
+    store.setAutoLockMinutes(30);
+    expect(store.settings.autoLockMinutes, 30);
+
+    store.setAutoLockMinutes(0);
+    expect(store.settings.autoLockMinutes, 0, reason: "0 - qulflanmaydi");
+
+    store.setAutoLockMinutes(9999);
+    expect(store.settings.autoLockMinutes, 120, reason: "yuqori chegara");
+  });
+
   test("mahsulot qo'shilganda stol band bo'ladi va summa hisoblanadi", () {
     final t = store.tables.first;
     final item = store.menu.firstWhere((m) => m.price > 0);

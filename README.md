@@ -60,6 +60,13 @@ Parolni `Sozlama -> Kirish paroli` bo'limidan o'zgartirish mumkin.
 - Umumiy tushum, cheklar soni, o'rtacha chek, naqd va karta bo'yicha bo'linish
 - Har bir chekni ochib ko'rish yoki o'chirish
 
+**Xavfsizlik**
+- Raqamli parol (PIN) bilan kirish
+- **Avtomatik qulflash** - kassa belgilangan vaqt tegilmasa (boshlang'ich
+  qiymat 10 daqiqa) o'zi parol ekraniga qaytadi. Ochiq buyurtmalar
+  saqlanib qoladi, hech narsa yo'qolmaydi. `Sozlama` dan o'chirish yoki
+  vaqtini o'zgartirish mumkin.
+
 **Sozlama**
 - Muassasa nomi
 - Xizmat haqi foizi (0% dan 15% gacha) - har bir chekka avtomatik qo'shiladi

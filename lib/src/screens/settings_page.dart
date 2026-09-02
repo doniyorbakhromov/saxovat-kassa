@@ -57,13 +57,28 @@ class SettingsPage extends StatelessWidget {
                     const SectionLabel("Xavfsizlik"),
                     const SizedBox(height: 12),
                     AppCard(
-                      child: _Row(
-                        icon: Icons.lock_outline_rounded,
-                        color: Ink3.violet,
-                        title: "Kirish paroli",
-                        value: "*" * store.settings.pin.length,
-                        subtitle: "Kassaga kirish uchun raqamli parol",
-                        onTap: () => _changePin(context),
+                      child: Column(
+                        children: [
+                          _Row(
+                            icon: Icons.lock_outline_rounded,
+                            color: Ink3.violet,
+                            title: "Kirish paroli",
+                            value: "*" * store.settings.pin.length,
+                            subtitle: "Kassaga kirish uchun raqamli parol",
+                            onTap: () => _changePin(context),
+                          ),
+                          const Divider(height: 22),
+                          _Row(
+                            icon: Icons.lock_clock_rounded,
+                            color: Ink3.gold,
+                            title: "Avtomatik qulflash",
+                            value: store.settings.autoLockMinutes == 0
+                                ? "Yo'q"
+                                : "${store.settings.autoLockMinutes} daq",
+                            subtitle: "Tegilmasa kassa o'zi parol so'raydi",
+                            onTap: () => _editAutoLock(context),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -235,6 +250,49 @@ class SettingsPage extends StatelessWidget {
       ),
     );
     if (res != null) store.setServicePercent(res);
+  }
+
+  Future<void> _editAutoLock(BuildContext context) async {
+    final res = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Avtomatik qulflash"),
+        content: SizedBox(
+          width: 340,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "Kassa shuncha vaqt tegilmasa, o'zi parol ekraniga qaytadi. "
+                "Ochiq buyurtmalar saqlanib qoladi.",
+                style: TextStyle(color: Ink3.textDim, fontSize: 13, height: 1.4),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final m in [0, 5, 10, 15, 30, 60])
+                    ChipButton(
+                      label: m == 0 ? "Yo'q" : "$m daqiqa",
+                      selected: store.settings.autoLockMinutes == m,
+                      onTap: () => Navigator.pop(ctx, m),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Yopish"),
+          ),
+        ],
+      ),
+    );
+    if (res != null) store.setAutoLockMinutes(res);
   }
 
   Future<void> _changePin(BuildContext context) async {

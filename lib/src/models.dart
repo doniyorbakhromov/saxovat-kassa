@@ -258,21 +258,27 @@ class AppSettings {
     this.venueName = "SAXOVAT BAR",
     this.servicePercent = 0,
     this.pin = "1234",
+    this.autoLockMinutes = 10,
   });
 
   String venueName;
   int servicePercent;
   String pin;
 
+  /// Necha daqiqa tegilmasa kassa o'zi qulflanadi. 0 - qulflanmaydi.
+  int autoLockMinutes;
+
   Map<String, Object?> toJson() => {
         "venueName": venueName,
         "servicePercent": servicePercent,
         "pin": pin,
+        "autoLockMinutes": autoLockMinutes,
       };
 
   static AppSettings fromJson(Map<String, Object?> j) => AppSettings(
         venueName: asStr(j["venueName"], "SAXOVAT BAR"),
         servicePercent: asInt(j["servicePercent"]),
         pin: asStr(j["pin"], "1234"),
+        autoLockMinutes: asInt(j["autoLockMinutes"], 10),
       );
 }

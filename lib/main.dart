@@ -6,6 +6,7 @@ import "src/screens/login_screen.dart";
 import "src/store.dart";
 import "src/sync/sync_service.dart";
 import "src/theme.dart";
+import "src/widgets/auto_lock.dart";
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,23 +18,31 @@ Future<void> main() async {
 class KassaApp extends StatelessWidget {
   const KassaApp({super.key});
 
+  static final GlobalKey<NavigatorState> _navKey = GlobalKey<NavigatorState>();
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: "Saxovat Kassa",
       debugShowCheckedModeBanner: false,
+      navigatorKey: _navKey,
       theme: buildAppTheme(),
-      // Brauzer shrifti kattalashtirilganda ham kassa ekrani buzilmasin.
+      // AutoLock butun Navigator ustida turadi - shunda buyurtma ekrani
+      // yoki oynalar ichidagi harakatlar ham hisobga olinadi.
       builder: (context, child) {
         final mq = MediaQuery.of(context);
         return MediaQuery(
           data: mq.copyWith(
+            // Brauzer shrifti kattalashtirilsa ham kassa ekrani buzilmasin.
             textScaler: mq.textScaler.clamp(
               minScaleFactor: 1,
               maxScaleFactor: 1.1,
             ),
           ),
-          child: child ?? const SizedBox.shrink(),
+          child: AutoLock(
+            navigatorKey: _navKey,
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
       },
       home: ListenableBuilder(
