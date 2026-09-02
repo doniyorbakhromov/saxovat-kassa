@@ -1178,8 +1178,8 @@ Future<void> showPaymentDialog(BuildContext context, BarTable table) async {
             ElevatedButton.icon(
               onPressed: notEnough
                   ? null
-                  : () {
-                      made = store.closeTable(
+                  : () async {
+                      made = await store.closeTable(
                         table.id,
                         discountPercent: discount,
                         method: method,
@@ -1187,7 +1187,7 @@ Future<void> showPaymentDialog(BuildContext context, BarTable table) async {
                             ? (cash == 0 ? total : cash)
                             : total,
                       );
-                      Navigator.pop(ctx);
+                      if (ctx.mounted) Navigator.pop(ctx);
                     },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Ink3.green,

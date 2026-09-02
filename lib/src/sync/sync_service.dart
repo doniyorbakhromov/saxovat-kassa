@@ -302,7 +302,7 @@ class SyncService extends ChangeNotifier {
     await client
         .from("receipts")
         .upsert(pendingList.map((r) => r.toRow()).toList());
-    store.markReceiptsSynced(pendingList.map((r) => r.id));
+    await store.markReceiptsSynced(pendingList.map((r) => r.id));
   }
 
   Future<void> _pullReceipts(SupabaseClient client) async {
@@ -311,7 +311,7 @@ class SyncService extends ChangeNotifier {
         .select()
         .order("closed_at", ascending: false)
         .limit(500);
-    store.mergeRemoteReceipts(
+    await store.mergeRemoteReceipts(
       (rows as List<dynamic>)
           .whereType<Map<String, dynamic>>()
           .map((r) => Receipt.fromRow(r.cast<String, Object?>()))

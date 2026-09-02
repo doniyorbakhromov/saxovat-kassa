@@ -4,6 +4,7 @@ import "dart:convert";
 import "package:flutter/foundation.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
+import "data/receipt_db.dart";
 import "models.dart";
 import "utils.dart";
 
@@ -16,6 +17,10 @@ class AppStore extends ChangeNotifier {
   static const String _key = "saxovat_kassa_v1";
 
   late SharedPreferences _prefs;
+  final ReceiptDb _receiptDb = ReceiptDb();
+
+  /// Eski versiyalarda cheklar shu yerda edi - bir marta ko'chiriladi.
+  List<Receipt> _legacyReceipts = <Receipt>[];
   bool _ready = false;
   bool get ready => _ready;
 
@@ -49,8 +54,44 @@ class AppStore extends ChangeNotifier {
         _persist();
       }
     }
+    await _loadReceipts();
+
     _ready = true;
     notifyListeners();
+  }
+
+  /// Testlar uchun: bazani yopib, xotiradagi holatni tozalaydi.
+  @visibleForTesting
+  Future<void> resetStorageForTest() async {
+    await _receiptDb.close();
+    receipts = <Receipt>[];
+    _legacyReceipts = <Receipt>[];
+    remoteUpdatedAt = null;
+  }
+
+  /// Cheklarni IndexedDB'dan yuklaydi va eski nusxalarni ko'chiradi.
+  Future<void> _loadReceipts() async {
+    try {
+      await _receiptDb.open();
+      receipts = await _receiptDb.loadAll();
+
+      if (_legacyReceipts.isNotEmpty) {
+        final known = receipts.map((r) => r.id).toSet();
+        final moving =
+            _legacyReceipts.where((r) => !known.contains(r.id)).toList();
+        if (moving.isNotEmpty) {
+          await _receiptDb.putAll(moving);
+          receipts = await _receiptDb.loadAll();
+        }
+        _legacyReceipts = <Receipt>[];
+        _persist();
+      }
+    } catch (_) {
+      // IndexedDB ishlamasa (masalan maxfiy rejim) - kassa baribir ishlaydi,
+      // cheklar faqat shu sessiyada va bulutda qoladi.
+      receipts = _legacyReceipts;
+      _legacyReceipts = <Receipt>[];
+    }
   }
 
   void _fromJson(Map<String, Object?> j) {
@@ -65,7 +106,7 @@ class AppStore extends ChangeNotifier {
     categories = (j["categories"] as List<Object?>? ?? const [])
         .whereType<String>()
         .toList();
-    receipts = (j["receipts"] as List<Object?>? ?? const [])
+    _legacyReceipts = (j["receipts"] as List<Object?>? ?? const [])
         .whereType<Map<String, Object?>>()
         .map(Receipt.fromJson)
         .toList();
@@ -84,7 +125,6 @@ class AppStore extends ChangeNotifier {
         "tables": tables.map((e) => e.toJson()).toList(),
         "menu": menu.map((e) => e.toJson()).toList(),
         "categories": categories,
-        "receipts": receipts.map((e) => e.toJson()).toList(),
         "settings": {
           ...settings.toJson(),
           "pin": _encodePin(settings.pin),
@@ -295,13 +335,13 @@ class AppStore extends ChangeNotifier {
   }
 
   /// To'lov qabul qilinib, stol yopiladi.
-  Receipt closeTable(
+  Future<Receipt> closeTable(
     String tableId, {
     required int discountPercent,
     required String method,
     int cashGiven = 0,
     String note = "",
-  }) {
+  }) async {
     final t = tableById(tableId)!;
     final subtotal = t.subtotal;
     final discount = subtotal * discountPercent ~/ 100;
@@ -339,6 +379,7 @@ class AppStore extends ChangeNotifier {
     );
 
     receipts.insert(0, r);
+    await _receiptDb.putAll([r]);
     t.lines = <OrderLine>[];
     t.openedAt = null;
     _changed();
@@ -432,8 +473,9 @@ class AppStore extends ChangeNotifier {
   int get openTablesTotal =>
       tables.fold(0, (s, t) => s + t.subtotal);
 
-  void deleteReceipt(String id) {
+  Future<void> deleteReceipt(String id) async {
     receipts.removeWhere((r) => r.id == id);
+    await _receiptDb.delete(id);
     _changed();
   }
 
@@ -474,23 +516,29 @@ class AppStore extends ChangeNotifier {
   }
 
   /// Bulutdan kelgan cheklarni qo'shadi (mavjudlari tegilmaydi).
-  void mergeRemoteReceipts(List<Receipt> incoming) {
+  Future<void> mergeRemoteReceipts(List<Receipt> incoming) async {
     final known = receipts.map((r) => r.id).toSet();
-    receipts.addAll(incoming.where((r) => !known.contains(r.id)));
+    final fresh = incoming.where((r) => !known.contains(r.id)).toList();
+    if (fresh.isEmpty) return;
+    receipts.addAll(fresh);
     receipts.sort((a, b) => b.closedAt.compareTo(a.closedAt));
-    _persist();
+    await _receiptDb.putAll(fresh);
     notifyListeners();
   }
 
   List<Receipt> get unsyncedReceipts =>
       receipts.where((r) => !r.synced).toList();
 
-  void markReceiptsSynced(Iterable<String> ids) {
+  Future<void> markReceiptsSynced(Iterable<String> ids) async {
     final set = ids.toSet();
+    final changed = <Receipt>[];
     for (final r in receipts) {
-      if (set.contains(r.id)) r.synced = true;
+      if (set.contains(r.id)) {
+        r.synced = true;
+        changed.add(r);
+      }
     }
-    _persist();
+    await _receiptDb.putAll(changed);
   }
 
   void setRemoteUpdatedAt(DateTime at) {
@@ -505,7 +553,6 @@ class AppStore extends ChangeNotifier {
 
   void _seed() {
     settings = AppSettings();
-    receipts = <Receipt>[];
     tables = <BarTable>[
       for (var i = 1; i <= 6; i++)
         BarTable(id: newId(), name: "Stol $i", zone: "Zal", seats: 4),

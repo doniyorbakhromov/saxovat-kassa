@@ -108,9 +108,22 @@ flutter test
 
 Ilova **avval lokal** tartibida ishlaydi:
 
-1. Har qanday o'zgarish darhol brauzer xotirasiga (localStorage) yoziladi -
+1. Har qanday o'zgarish darhol qurilmaning o'z bazasiga yoziladi -
    shuning uchun ekran hech qachon kutib turmaydi.
 2. Keyin fonda Supabase bazasiga yuboriladi.
+
+Qurilmada ikki joyda saqlanadi:
+
+| Nima | Qayerda | Nega |
+|---|---|---|
+| Stollar, menyu, sozlamalar | localStorage (~5 KB) | kichik, tez-tez o'zgaradi |
+| **Cheklar arxivi** | **IndexedDB** | hajm chegarasi yo'q, cheklanmaydi |
+
+Cheklar alohida bazada turgani muhim: localStorage'da ular ~2-3 oydan keyin
+5 MB limitiga urilardi, ustiga har bir yangi buyurtma qatoriga butun arxiv
+qayta yozilib, kassa sekinlashardi. IndexedDB'da esa **hech qanday cheklov
+yo'q** - yangi chek qo'shilganda faqat o'sha bitta yozuv yoziladi, eski
+cheklar joyida qoladi.
 
 Internet uzilsa kassa ishlashda davom etadi, o'zgarishlar navbatda turadi
 va ulanish tiklanishi bilan avtomatik yuboriladi. Yuqori panelda holat
@@ -126,7 +139,7 @@ ko'rinib turadi:
 Bazada ikkita jadval bor:
 
 - `kassa_state` - stollar, menyu, kategoriyalar va sozlamalar (bitta qator)
-- `receipts` - yopilgan cheklar (har biri alohida qator)
+- `receipts` - yopilgan cheklar (har biri alohida qator, cheklovsiz)
 
 Cheklar alohida jadvalda turgani uchun hisobotlarni to'g'ridan-to'g'ri SQL
 bilan olish mumkin (namunalari `supabase/schema.sql` oxirida).
@@ -239,6 +252,10 @@ lib/
     theme.dart                 ranglar va umumiy dizayn
     icons.dart                 mahsulot belgilari ro'yxati
     utils.dart                 summa/sana formatlash
+    data/
+      receipt_db.dart          cheklar arxivi (IndexedDB)
+      idb_factory_web.dart     brauzer uchun baza
+      idb_factory_stub.dart    testlar uchun xotiradagi baza
     sync/
       supabase_config.dart     build vaqtidagi kalitlar
       sync_service.dart        bulut bilan sinxronizatsiya

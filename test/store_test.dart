@@ -7,6 +7,7 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
+    await store.resetStorageForTest();
     await store.init();
   });
 
@@ -47,13 +48,13 @@ void main() {
     expect(t.isBusy, isFalse);
   });
 
-  test("to'lovda chegirma va xizmat haqi to'g'ri hisoblanadi", () {
+  test("to'lovda chegirma va xizmat haqi to'g'ri hisoblanadi", () async {
     store.setServicePercent(10);
     final t = store.tables.first;
     final item = store.addItem("Test mahsulot", 100000, "Pivo", "pivo");
     store.addToOrder(t.id, item);
 
-    final r = store.closeTable(
+    final r = await store.closeTable(
       t.id,
       discountPercent: 10,
       method: "Naqd",
@@ -67,16 +68,32 @@ void main() {
     expect(r.change, 1000);
   });
 
-  test("stol yopilgach chek saqlanadi va stol bo'shaydi", () {
+  test("stol yopilgach chek saqlanadi va stol bo'shaydi", () async {
     final t = store.tables.first;
     store.addToOrder(t.id, store.menu.first);
-    store.closeTable(t.id, discountPercent: 0, method: "Karta");
+    await store.closeTable(t.id, discountPercent: 0, method: "Karta");
 
     expect(t.isBusy, isFalse);
     expect(t.lines, isEmpty);
     expect(store.receipts.length, 1);
     expect(store.todayReceipts.length, 1);
     expect(store.todayRevenue, store.receipts.first.total);
+  });
+
+  test("cheklar alohida bazada saqlanadi, asosiy blobga yozilmaydi", () async {
+    final t = store.tables.first;
+    store.addToOrder(t.id, store.menu.first);
+    await store.closeTable(t.id, discountPercent: 0, method: "Naqd");
+
+    expect(store.receipts.length, 1);
+
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString("saxovat_kassa_v1") ?? "";
+    expect(
+      raw.contains('"receipts"'),
+      isFalse,
+      reason: "chek qo'shilganda butun arxiv qayta yozilmasligi kerak",
+    );
   });
 
   test("buyurtmani boshqa stolga ko'chirish", () {
