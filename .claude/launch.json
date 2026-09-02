@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "kassa-web",
+      "runtimeExecutable": "flutter",
+      "runtimeArgs": ["run", "-d", "web-server", "--web-port", "5599", "--web-hostname", "127.0.0.1"],
+      "port": 5599
+    },
+    {
+      "name": "kassa-release",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "5600", "--directory", "build/web", "--bind", "127.0.0.1"],
+      "port": 5600
+    }
+  ]
+}
