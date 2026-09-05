@@ -54,17 +54,6 @@ Future<void> showReceiptDialog(
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      if (r.method == "Naqd" && r.change > 0) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          "Qaytim: ${sum(r.change)}",
-                          style: const TextStyle(
-                            color: Ink3.goldSoft,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -194,10 +183,6 @@ Future<void> showReceiptDialog(
                       ),
                       const SizedBox(height: 12),
                       _Line("To'lov turi", r.method),
-                      if (r.method == "Naqd" && r.cashGiven > 0) ...[
-                        _Line("Berilgan", money(r.cashGiven)),
-                        _Line("Qaytim", money(r.change)),
-                      ],
                       _Line("Davomiyligi", elapsed(r.duration)),
                       if (r.note.isNotEmpty) _Line("Izoh", r.note),
                       const SizedBox(height: 14),

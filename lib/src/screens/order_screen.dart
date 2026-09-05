@@ -965,25 +965,13 @@ Future<void> showPaymentDialog(BuildContext context, BarTable table) async {
     context: context,
     barrierDismissible: false,
     builder: (ctx) => DialogForm(
-      initial: const [""],
+      initial: const [],
       builder: (ctx, f, setLocal) {
-        final cashC = f[0];
         final sp = store.settings.servicePercent;
         final subtotal = table.subtotal;
         final disc = subtotal * discount ~/ 100;
         final service = (subtotal - disc) * sp ~/ 100;
         final total = subtotal - disc + service;
-        final cash =
-            int.tryParse(cashC.text.replaceAll(RegExp(r"[^0-9]"), "")) ?? 0;
-        final change = cash - total;
-        final notEnough = cash > 0 && cash < total;
-
-        void quick(int v) {
-          cashC.text = money(v);
-          setLocal(() {});
-        }
-
-        int roundUp(int base) => ((total + base - 1) ~/ base) * base;
 
         return AlertDialog(
           insetPadding: const EdgeInsets.all(18),
@@ -1089,82 +1077,6 @@ Future<void> showPaymentDialog(BuildContext context, BarTable table) async {
                       ],
                     ],
                   ),
-                  if (method == "Naqd") ...[
-                    const SizedBox(height: 18),
-                    const _Label("Mijoz bergan pul"),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: cashC,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: const [ThousandsFormatter()],
-                      onChanged: (_) => setLocal(() {}),
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: money(total),
-                        prefixIcon: const Icon(Icons.account_balance_wallet_outlined),
-                        errorText: notEnough ? "Summa yetarli emas" : null,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 7,
-                      runSpacing: 7,
-                      children: [
-                        ChipButton(
-                          label: "Aniq",
-                          selected: cash == total,
-                          onTap: () => quick(total),
-                        ),
-                        for (final b in [10000, 50000, 100000])
-                          ChipButton(
-                            label: money(roundUp(b)),
-                            selected: cash == roundUp(b),
-                            onTap: () => quick(roundUp(b)),
-                          ),
-                      ],
-                    ),
-                    if (cash >= total && cash > 0) ...[
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Ink3.green.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: Ink3.green.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment:
-                              MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              "Qaytim",
-                              style: TextStyle(
-                                color: Ink3.textDim,
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            Text(
-                              sum(change),
-                              style: const TextStyle(
-                                color: Ink3.green,
-                                fontSize: 19,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
                 ],
               ),
             ),
@@ -1176,19 +1088,14 @@ Future<void> showPaymentDialog(BuildContext context, BarTable table) async {
               child: const Text("Bekor qilish"),
             ),
             ElevatedButton.icon(
-              onPressed: notEnough
-                  ? null
-                  : () async {
-                      made = await store.closeTable(
-                        table.id,
-                        discountPercent: discount,
-                        method: method,
-                        cashGiven: method == "Naqd"
-                            ? (cash == 0 ? total : cash)
-                            : total,
-                      );
-                      if (ctx.mounted) Navigator.pop(ctx);
-                    },
+              onPressed: () async {
+                made = await store.closeTable(
+                  table.id,
+                  discountPercent: discount,
+                  method: method,
+                );
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Ink3.green,
                 foregroundColor: Colors.white,
