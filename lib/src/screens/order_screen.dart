@@ -1063,7 +1063,6 @@ Future<void> showPaymentDialog(BuildContext context, BarTable table) async {
                       for (final m in const <(String, IconData)>[
                         ("Naqd", Icons.account_balance_wallet_rounded),
                         ("Karta", Icons.credit_card_rounded),
-                        ("Click/Payme", Icons.phone_iphone_rounded),
                       ]) ...[
                         Expanded(
                           child: _MethodBtn(
@@ -1073,7 +1072,7 @@ Future<void> showPaymentDialog(BuildContext context, BarTable table) async {
                             onTap: () => setLocal(() => method = m.$1),
                           ),
                         ),
-                        if (m.$1 != "Click/Payme") const SizedBox(width: 8),
+                        if (m.$1 != "Karta") const SizedBox(width: 8),
                       ],
                     ],
                   ),

@@ -118,7 +118,7 @@ class _HistoryPageState extends State<HistoryPage> {
                         color: Ink3.blue,
                       ),
                       StatTile(
-                        label: "KARTA / ONLAYN",
+                        label: "KARTA",
                         value: sum(card),
                         icon: Icons.credit_card_rounded,
                         color: Ink3.violet,
