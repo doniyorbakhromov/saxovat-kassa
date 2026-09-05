@@ -129,7 +129,7 @@ class SettingsPage extends StatelessWidget {
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: const Icon(
-                              Icons.local_bar_rounded,
+                              Icons.point_of_sale_rounded,
                               color: Color(0xFF1A1206),
                               size: 22,
                             ),

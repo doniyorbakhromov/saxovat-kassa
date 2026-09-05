@@ -263,7 +263,7 @@ class _Logo extends StatelessWidget {
         boxShadow: Ink3.glow(Ink3.gold, 0.35),
       ),
       child: Icon(
-        Icons.local_bar_rounded,
+        Icons.point_of_sale_rounded,
         size: s * 0.46,
         color: const Color(0xFF1A1206),
       ),

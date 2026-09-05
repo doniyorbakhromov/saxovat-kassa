@@ -122,7 +122,7 @@ class _SideRail extends StatelessWidget {
               boxShadow: Ink3.glow(Ink3.gold, 0.3),
             ),
             child: const Icon(
-              Icons.local_bar_rounded,
+              Icons.point_of_sale_rounded,
               color: Color(0xFF1A1206),
               size: 22,
             ),
@@ -284,7 +284,7 @@ class _TopBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(
-                Icons.local_bar_rounded,
+                Icons.point_of_sale_rounded,
                 color: Color(0xFF1A1206),
                 size: 19,
               ),
